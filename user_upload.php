@@ -4,38 +4,77 @@ $username = "springstudent";
 $password = "springstudent";
 $dbname = "myDB";
  
-// create connection
-$conn = new mysqli($servername, $username, $password);
- 
-// test connection
-if ($conn->connect_error) {
-    die("connection failed: " . $conn->connect_error);
-} 
-echo "connection successfully\n";
 
-$sql = "CREATE DATABASE IF NOT EXISTS myDB";
-if (mysqli_query($conn, $sql)) {
-    echo "create database successfully\n"; 
-} else {
-    echo "Error creating database: " . mysqli_error($conn);
+$shortopts = "uph"; // These options do not accept values
+
+$longopts  = array(
+    "file:",     
+    "create_table",    
+    "dry_run",        
+    "help",           
+);
+$options = getopt($shortopts, $longopts);
+var_dump($options);
+
+if (array_key_exists('u', $options)) {
+    echo "MySQL username is " . $username . "\n";
 }
-mysqli_close($conn);
 
-
-$conn = new mysqli($servername, $username, $password,$dbname);
-$sql = "CREATE TABLE IF NOT EXISTS users ( 
-name VARCHAR(30) NOT NULL,
-surename VARCHAR(30) NOT NULL,
-email VARCHAR(50) PRIMARY KEY
-)";
-
-if ($conn->query($sql) === TRUE) {
-    echo "Table users created successfully\n";
-} else {
-    echo "Error creating table: " . $conn->error;
+if (array_key_exists('p', $options)) {
+    echo "MySQL password is " . $password . "\n";
 }
- 
-mysqli_close($conn);
+
+if (array_key_exists('h', $options)) {
+    echo "MySQL host is " . $servername . "\n";
+}
+
+if (array_key_exists('help', $options)) {
+    echo "    --file [csv file name] – this is the name of the CSV to be parsed\n 
+    --create_table – this will cause the MySQL users table to be built (and no further action will be taken)\n
+    --dry_run – this will be used with the --file directive in the instance that we want to run the script but not insert into the DB. All other functions will be executed, but the database won't be altered.\n
+    -u – MySQL username\n
+    -p – MySQL password\n
+    -h – MySQL host\n
+    --help – which will output the above list of directives with details.\n";
+}
+
+function create_database(){
+	// create connection
+	$conn = new mysqli($servername, $username, $password);
+	 
+	// test connection
+	if ($conn->connect_error) {
+	    die("connection failed: " . $conn->connect_error);
+	} 
+	echo "connection successfully\n";
+
+	$sql = "CREATE DATABASE IF NOT EXISTS myDB";
+	if (mysqli_query($conn, $sql)) {
+	    echo "create database successfully\n"; 
+	} else {
+	    echo "Error creating database: " . mysqli_error($conn);
+	}
+	mysqli_close($conn);
+}
+
+
+function create_table(){
+	$conn = new mysqli($servername, $username, $password, $dbname);
+	$sql = "CREATE TABLE IF NOT EXISTS users ( 
+	name VARCHAR(30) NOT NULL,
+	surename VARCHAR(30) NOT NULL,
+	email VARCHAR(50) PRIMARY KEY
+	)";
+
+	if ($conn->query($sql) === TRUE) {
+	    echo "Table users created successfully\n";
+	} else {
+	    echo "Error creating table: " . $conn->error;
+	}
+	 
+	mysqli_close($conn);
+}
+
 
 //load data from users.csv
 $row = 1;
@@ -53,29 +92,43 @@ if (($handle = fopen("users.csv", "r")) !== FALSE) {
     fclose($handle);
 }
 
+
+
 //insert into database
 $conn = new mysqli($servername, $username, $password, $dbname);
 
+$exist_email = [];
 // Check connection
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
 
+$sql = "SELECT email FROM users";
+$result = $conn->query($sql);
+ 
+if ($result->num_rows > 0) {
+    while($row = $result->fetch_assoc()) {
+        array_push($exist_email,$row["email"]);
+    }
+} else {
+    
+}
 
 
 for($c = 1; $c < sizeof($stored_data); $c++){
 	// prepare and bind
 	$stmt = $conn->prepare("INSERT INTO users (name, surename, email) VALUES (?, ?, ?)");
 	$stmt->bind_param("sss", $name, $surename, $email);
-	//echo sizeof($stored_data) . "\n";
-	//echo $c;
 	// set parameters and execute
 	$name = clean(ucfirst(strtolower($stored_data[$c][0])));
 	$surename = clean(ucfirst(strtolower($stored_data[$c][1])));
-	$email = $stored_data[$c][2];
+	$email = strtolower($stored_data[$c][2]);
 	if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    	echo "Error: email format is not valid!\n";
+    	echo "Error: email format is not valid! " . $email . "\n";
+	}
+	elseif (in_array($email, $exist_email)) {
+		echo "Insertion failed ! Email ". $email ." already in use.\n";
 	}
 	else{
 		$stmt->execute();
@@ -86,7 +139,7 @@ for($c = 1; $c < sizeof($stored_data); $c++){
 mysqli_close($conn);
 
 
-// remove special characters 
+//  function for removing special characters 
 function clean($string) {
    $string = str_replace(' ', '', $string); // Replaces all spaces with hyphens.
 
