@@ -39,7 +39,8 @@ if (array_key_exists('help', $options)) {
 
 if (array_key_exists('file', $options) and !array_key_exists('dry_run', $options)) {
     $filename = $options["file"];
-    insert_data($filename,$servername,$username,$password,$dbname);
+    $data = load_data($filename,$servername,$username,$password,$dbname);
+    insert_data($data,$servername,$username,$password,$dbname);
 }
 
 if (array_key_exists('create_table', $options)) {
@@ -47,8 +48,10 @@ if (array_key_exists('create_table', $options)) {
 }
 
 if (array_key_exists('dry_run', $options) and array_key_exists('file', $options)) {
+	$filename = $options["file"];
     create_database($servername,$username,$password);
     create_table($servername,$username,$password,$dbname);
+    $data = load_data($filename,$servername,$username,$password,$dbname);
 }
 
 
@@ -62,11 +65,11 @@ function create_database($servername,$username,$password){
 	if ($conn->connect_error) {
 	    die("connection failed: " . $conn->connect_error);
 	} 
-	echo "connection successfully\n";
+	echo "Database connection successfully\n";
 
 	$sql = "CREATE DATABASE IF NOT EXISTS myDB";
 	if (mysqli_query($conn, $sql)) {
-	    echo "create database successfully\n"; 
+	    //echo "create database successfully\n"; 
 	} else {
 	    echo "Error creating database: " . mysqli_error($conn);
 	}
@@ -99,7 +102,7 @@ function create_table($servername,$username,$password,$dbname){
 }
 
 // load data from csv and insert into the database if the --file[csvfile] is called
-function insert_data($filename,$servername,$username,$password,$dbname){
+function load_data($filename,$servername,$username,$password,$dbname){
 	//load data from users.csv
 	$row = 1;
 	$stored_data = [];
@@ -114,10 +117,12 @@ function insert_data($filename,$servername,$username,$password,$dbname){
 	    }
 	    //var_dump($stored_data);
 	    fclose($handle);
+	echo "Load data successfully\n";
+	return $stored_data;
 	}
+}
 
-
-
+function insert_data($stored_data,$servername,$username,$password,$dbname){
 	//insert into database
 	$conn = new mysqli($servername, $username, $password, $dbname);
 
